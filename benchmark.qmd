@@ -1,0 +1,539 @@
+---
+title: "Parallel Backends for tidymodels Workloads: future, mirai, mizu"
+format:
+  html:
+    toc: true
+    embed-resources: true
+    theme: cosmo
+execute:
+  echo: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(dplyr)
+library(ggplot2)
+library(purrr)
+library(tidyr)
+
+theme_set(theme_bw())
+
+timings <- readRDS("results/timings.rds")
+monitors <- readRDS("results/monitors.rds")
+meta <- readRDS("results/meta.rds")
+
+workers <- meta$workers
+
+wl_label <- c(
+  boot_metrics = "A: Bootstrap metrics",
+  resample_fit = "B: Resampled model fits",
+  perm_importance = "C: Permutation importance",
+  boot_pred_interval = "D: Bootstrap prediction intervals"
+)
+
+backend_label <- c(
+  sequential = "sequential",
+  future = "future (multisession)",
+  mirai = "mirai",
+  mizu = "mizu"
+)
+
+backend_cols <- c(
+  "future (multisession)" = "#7570B3",
+  "mirai" = "#1B9E77",
+  "mizu" = "#E7298A"
+)
+
+bench <- timings |>
+  mutate(
+    workload = wl_label[workload],
+    backend = backend_label[backend]
+  )
+
+baseline <- bench |>
+  filter(backend == "sequential") |>
+  summarize(baseline = mean(elapsed), .by = workload)
+
+par_bench <- bench |>
+  filter(backend != "sequential") |>
+  inner_join(baseline, by = "workload") |>
+  mutate(
+    speed_up = baseline / elapsed,
+    workload = factor(workload, levels = wl_label),
+    backend = factor(backend, levels = backend_label)
+  )
+
+# Timing statistics use the three timed runs; the syrup-monitored run
+# (which pays the sampler's overhead) is excluded, but is still plotted.
+summ <- par_bench |>
+  filter(!monitored) |>
+  summarize(
+    runs = n(),
+    mean_elapsed = mean(elapsed),
+    sd_elapsed = sd(elapsed),
+    mean_speedup = mean(speed_up),
+    efficiency = mean_speedup / workers,
+    .by = c(workload, backend)
+  ) |>
+  arrange(workload, desc(mean_speedup))
+
+mon_all <- monitors |>
+  mutate(
+    workload = wl_label[workload],
+    backend = backend_label[backend]
+  ) |>
+  mutate(rel_time = as.numeric(time - min(time)), .by = c(workload, backend))
+
+mon <- mon_all |>
+  filter(pid != main_pid)
+
+busy <- mon |>
+  summarize(cores = sum(pct_cpu) / 100, .by = c(workload, backend, rel_time)) |>
+  mutate(
+    workload = factor(workload, levels = wl_label),
+    backend = factor(backend, levels = backend_label)
+  )
+
+fmt <- function(x, d = 1) formatC(x, digits = d, format = "f")
+
+get_speedup <- function(wl, be) {
+  summ |>
+    filter(workload == wl_label[[wl]], backend == backend_label[[be]]) |>
+    pull(mean_speedup)
+}
+get_elapsed <- function(wl, be) {
+  summ |>
+    filter(workload == wl_label[[wl]], backend == backend_label[[be]]) |>
+    pull(mean_elapsed)
+}
+```
+
+## Overview
+
+This benchmark compares three R parallel backends — **future**
+(multisession, via future.apply), **mirai** (local daemons, via
+`mirai_map()`), and **mizu** (shared-memory worker pool, via
+`mizu_map()`) — on four representative tidymodels workloads. It extends
+the methodology of
+[topepo/bootstrap-parallel-benchmark](https://github.com/topepo/bootstrap-parallel-benchmark):
+same machine for every run, a sequential `lapply()` baseline per
+workload, worker CPU utilization sampled with
+[syrup](https://github.com/simonpcouch/syrup) at a 50 ms target
+interval (~5 Hz realized — each `ps` snapshot costs ~0.15 s), and
+correctness verified by comparing every backend's output against the
+sequential result.
+
+The workloads are chosen to stress the transport
+regimes that separate the backends' architectures: per-task payloads
+of growing size (A, B, C), a large read-only input shared across all
+tasks (D), and large per-task results (D). All four are standard
+modeling workflows, but they are transport-heavy by design — that is
+where backend choice matters.
+
+All runs use `r workers` workers on a `r meta$cores`-core Apple Silicon
+Mac (R `r sub("R version ", "", meta$r_version)`).
+
+## Workloads
+
+```{r}
+#| label: workload-table
+
+tibble(
+  Workload = unname(wl_label),
+  Tasks = as.integer(meta$n_tasks[names(wl_label)]),
+  `Per-task cost` = c("~3 ms", "~45 ms", "~85 ms", "~90 ms"),
+  `Per-task input` = c(
+    "1 bootstrap split (~200 KB)",
+    "1 bootstrap split (~1.7 MB)",
+    "1 bootstrap replicate (~2.8 MB)",
+    "1 bootstrap split (~3.4 MB)"
+  ),
+  `Shared input (constant)` = c(
+    "—",
+    "—",
+    "fitted glm (0.2 MB)",
+    "38 MB portfolio (250k policies)"
+  ),
+  `Per-task result` = c(
+    "4-row tibble",
+    "2-row tibble",
+    "30-row tibble",
+    "250k-length numeric (2 MB)"
+  ),
+  `What it represents` = c(
+    "bootstrap confidence intervals with yardstick metric sets",
+    "fit_resamples() on a parsnip workflow (recipe + logistic regression)",
+    "bootstrap permutation importance: 240 replicates, each permuting all 30 predictors in turn",
+    "bootstrap prediction intervals: refit a Gamma severity model, score the whole portfolio"
+  )
+) |>
+  knitr::kable()
+```
+
+Each task function is self-contained — it `require()`s its packages
+internally, so no backend-specific package/globals export mechanism is
+used, and every backend pays the same worker setup cost:
+
+```r
+# A: yardstick metrics on one bootstrap split
+task_metrics <- function(split) {
+  require(rsample)
+  require(yardstick)
+  mtr <- metric_set(rmse, rsq, mae, ccc)
+  mtr(analysis(split), y, .pred)
+}
+
+# B: parsnip workflow fit on the analysis set, scored out-of-bag
+task_fit_glm <- function(split) {
+  require(rsample); require(recipes); require(parsnip)
+  require(workflows); require(yardstick); require(dplyr)
+  wf <- workflow() |>
+    add_recipe(recipe(class ~ ., data = analysis(split)) |>
+                 step_normalize(all_numeric_predictors())) |>
+    add_model(logistic_reg() |> set_engine("glm"))
+  fitted <- fit(wf, data = analysis(split))
+  assess <- assessment(split)
+  pred <- predict(fitted, assess, type = "prob") |>
+    bind_cols(predict(fitted, assess, type = "class")) |>
+    bind_cols(assess |> select(class))
+  bind_rows(roc_auc(pred, class, .pred_yes),
+            accuracy(pred, class, .pred_class))
+}
+
+# C: one bootstrap replicate of the validation set; permute each
+# predictor in turn and record the AUC drop against the pre-fit model
+task_permimp <- function(task, model) {
+  require(rsample); require(yardstick); require(dplyr)
+  set.seed(task$seed, kind = "Mersenne-Twister")
+  dat <- analysis(task$split)
+  truth <- dat$y
+  pred <- as.numeric(predict(model, newdata = dat, type = "response"))
+  base_auc <- roc_auc_vec(truth, pred, event_level = "second")
+  cols <- setdiff(colnames(dat), "y")
+  importance <- numeric(length(cols))
+  for (j in seq_along(cols)) {
+    orig <- dat[[cols[j]]]
+    dat[[cols[j]]] <- orig[sample.int(length(orig))]
+    p <- as.numeric(predict(model, newdata = dat, type = "response"))
+    importance[j] <- base_auc - roc_auc_vec(truth, p, event_level = "second")
+    dat[[cols[j]]] <- orig
+  }
+  tibble(col = cols, base_auc = base_auc, importance = importance)
+}
+
+# D: refit the severity model on one bootstrap split and predict
+# expected loss for every policy in the shared portfolio
+task_bootpred <- function(split, portfolio) {
+  require(rsample)
+  fit <- glm(loss ~ ., data = analysis(split),
+             family = Gamma(link = "log"), control = list(maxit = 25))
+  as.numeric(predict(fit, newdata = portfolio, type = "response"))
+}
+```
+
+## Backend calls
+
+The parallel call for each backend, after setup
+(`plan(multisession, workers = 12)`, `daemons(12)`,
+`mizu_pool(12)` — created once per backend, outside the timed region).
+Workload D passes its shared portfolio as a constant argument through
+each backend's natural map call (C's only constant is the fitted
+model, 0.2 MB):
+
+```r
+future.apply::future_lapply(tasks, fn, portfolio = portfolio)
+mirai::mirai_map(tasks, fn, .args = list(portfolio = portfolio))[]
+mizu::mizu_map(pool, tasks, fn, portfolio = portfolio)
+```
+
+The three handle those constants very differently: future exports them
+as globals once per worker chunk **on every call**, mirai serializes
+them **with every task**, and mizu stages them **once per call** into
+shared memory, where all workers read the same physical pages.
+
+Per workload and backend: one warmup run (also the correctness check),
+three timed runs, and one syrup-monitored run.
+
+::: {.callout-note}
+## future.globals.maxSize (historical note)
+
+future before 1.40.0 (April 2025) capped the globals a multisession
+plan would export at 500 MiB per future by default, aborting with
+*"Will not launch future due to the size of the globals …"* above
+it; raising `options(future.globals.maxSize)` was then a required
+extra step for large-payload workloads — one the other backends never
+needed. Since 1.40.0 the multisession backend defaults to no limit,
+and 1.75.0 made `+Inf` the default on every code path, so with the
+current future no setting is required: the
+`options(future.globals.maxSize = 8 * 1024^3)` in `benchmark.R` is a
+harmless remnant of that era.
+:::
+
+::: {.callout-note}
+## mirai: constants, `everywhere()`, and worker RNG
+
+`mirai_map()`'s `...`/`.args` constants are serialized with **every
+task** — the measured cost scales linearly with task count (40 tasks
+cost ~4× 10 tasks for a 40 MB constant). mirai's documented pattern
+for large shared objects is `everywhere()`: one out-of-band export per
+daemon, persisted across calls. Measured on these workloads
+(export / subsequent map):
+
+- C: `r fmt(meta$extras$perm_importance$export, 2)` s /
+  `r fmt(meta$extras$perm_importance$map, 1)` s
+- D: `r fmt(meta$extras$boot_pred_interval$export, 2)` s /
+  `r fmt(meta$extras$boot_pred_interval$map, 1)` s
+
+C's constant (a 0.2 MB model) is too small for this to matter; D is
+the case it exists for. The export amortizes the send side (at 12
+serialized copies resident in workers, re-exported whenever the shared
+object changes); results still return over sockets, yet on workload D
+this is nonetheless the fastest configuration measured (see Findings).
+
+Payload hygiene also matters disproportionately under per-task
+serialization: the benchmark's fitted models are stripped to
+prediction essentials (butcher-style: no QR matrix, model frame, or
+embedded data). An earlier revision of C that shipped an unstripped
+glm (~300 MB on 250k rows) as a per-task constant moved ~85 GB per
+mirai run, and macOS repeatedly OOM-killed the session (jetsam). The
+stripped fits benefit all three backends equally and are standard
+practice when deploying a model to workers.
+
+A second difference surfaced in testing: mirai daemons default to the
+L'Ecuyer-CMRG RNG while R sessions default to Mersenne-Twister, so a
+bare `set.seed()` inside a task produces a *different* stream on mirai
+than sequentially or on the other backends; workload C pins
+`kind = "Mersenne-Twister"` to keep results comparable.
+:::
+
+## Results
+
+Every backend returned results identical to the sequential reference
+(`all.equal()` at 1e-8 tolerance) for all four workloads:
+`r if (all(unlist(meta$correct))) "all 12 backend × workload combinations match." else paste("MISMATCH:", names(meta$correct)[!unlist(meta$correct)])`
+
+Elapsed and speed-up statistics are summarized over the three timed
+runs; the syrup-monitored run pays the sampler's overhead
+(disproportionate on sub-3 s maps) and is excluded from the table, but
+its point appears in the speed-up figure and its trace in the CPU
+grids below.
+
+```{r}
+#| label: results-table
+
+summ |>
+  mutate(
+    elapsed = sprintf("%.2f ± %.2f", mean_elapsed, sd_elapsed),
+    speedup = fmt(mean_speedup, 2),
+    efficiency = fmt(100 * efficiency, 0)
+  ) |>
+  select(
+    Workload = workload, Backend = backend, Runs = runs,
+    `Elapsed (s)` = elapsed, `Speed-up` = speedup,
+    `Efficiency (%)` = efficiency
+  ) |>
+  knitr::kable(align = "llrrrr")
+```
+
+```{r}
+#| label: speedups
+#| fig-width: 8
+#| fig-height: 4.5
+
+ggplot(par_bench, aes(backend, speed_up, col = backend)) +
+  geom_hline(yintercept = 1, lty = 2, col = "red") +
+  geom_hline(yintercept = workers, lty = 2, col = "darkgreen") +
+  geom_jitter(width = 0.08, alpha = 3 / 4, cex = 2) +
+  facet_wrap(~workload) +
+  scale_color_manual(values = backend_cols) +
+  labs(x = NULL, y = "Speed-up vs sequential", col = NULL) +
+  theme(legend.position = "top", axis.text.x = element_blank())
+```
+
+Dashed lines: no speed-up (red) and perfect scaling on `r workers`
+workers (green). Points include the syrup-monitored run.
+
+## CPU utilization
+
+Aggregate worker CPU (sum of per-process %CPU, i.e. busy cores) over
+each monitored run:
+
+```{r}
+#| label: cpu-aggregate
+#| fig-width: 8
+#| fig-height: 4.5
+
+ggplot(busy, aes(rel_time, cores, col = backend)) +
+  geom_hline(yintercept = workers, lty = 2, col = "darkgreen") +
+  geom_line(linewidth = 0.7) +
+  facet_wrap(~workload, scales = "free_x") +
+  scale_color_manual(values = backend_cols) +
+  labs(x = "seconds into run", y = "busy worker cores", col = NULL) +
+  theme(legend.position = "top")
+```
+
+::: {.callout-tip collapse="true"}
+## Per-worker detail (12 grids)
+
+```{r}
+#| label: cpu-detail
+#| fig-width: 8
+#| fig-height: 5
+#| results: asis
+
+detail <- function(wl, be) {
+  d <- mon |>
+    filter(workload == wl_label[[wl]], backend == backend_label[[be]]) |>
+    mutate(worker = factor(pid))
+  if (nrow(d) == 0L) {
+    return(invisible(NULL))
+  }
+  ggplot(d, aes(rel_time, pct_cpu, col = worker)) +
+    geom_point(cex = 1 / 3, show.legend = FALSE) +
+    geom_line(linewidth = 1 / 3, show.legend = FALSE) +
+    facet_wrap(~worker) +
+    labs(
+      title = paste(wl_label[[wl]], "—", backend_label[[be]]),
+      x = "seconds", y = "CPU (%)"
+    )
+}
+
+for (wl in names(wl_label)) {
+  for (be in c("future", "mirai", "mizu")) {
+    print(detail(wl, be))
+  }
+}
+```
+:::
+
+### Anomalies
+
+```{r}
+#| label: anomalies-data
+#| include: false
+
+cores_mean <- busy |>
+  summarize(mean_cores = mean(cores), .by = c(workload, backend))
+
+mc <- function(wl, be) {
+  cores_mean |>
+    filter(workload == wl_label[[wl]], backend == backend_label[[be]]) |>
+    pull(mean_cores)
+}
+# kernel CPU-seconds per wall-clock second, main process (unmonitored runs)
+sysr <- function(wl, be) {
+  d <- timings[
+    timings$workload == wl & timings$backend == be & !timings$monitored,
+  ]
+  mean(d$system / d$elapsed)
+}
+```
+
+Two anomalies stand out in the per-worker grids.
+
+**Staggered dispatch (A and B, future).** Although `future_lapply()`
+chunks statically — each worker receives its full share of tasks up
+front — the workers are busy in staggered 1–2 s windows that march in
+pid order across the run, with only a few computing at any instant:
+mean concurrency is `r fmt(mc("boot_metrics", "future"), 1)` of
+`r workers` cores in workload A and
+`r fmt(mc("resample_fit", "future"), 1)` in B, where mirai and mizu
+sustain `r fmt(mc("boot_metrics", "mirai"), 1)` and
+`r fmt(mc("boot_metrics", "mizu"), 1)`. The bottleneck is the main
+process: it serializes each worker's chunk (~83 MB in A, ~35 MB in B)
+and writes the chunks to the workers sequentially over sockets, so a
+worker idles until its chunk has fully arrived. This is the saw-tooth
+pattern noted in the original benchmark, and it is why future's
+speed-ups in A and B fall so far short of the other backends despite
+12 workers. mirai's dispatcher streams tasks and mizu's workers read
+claimed elements straight off shared pages, so neither shows idle
+workers; on A their transport cost appears as total time (mirai) or
+not at all (mizu).
+
+**The main process is the transport (D, mirai).** mirai serializes
+the shared portfolio with every task, from the main process, before
+dispatch: its workers average
+`r fmt(mc("boot_pred_interval", "mirai"), 1)` of `r workers` cores —
+they idle while the main process serializes ~17 GB of payloads per run
+(`r fmt(sysr("boot_pred_interval", "mirai"), 1)` kernel CPU-seconds
+per wall-clock second in the main process: socket writes plus the
+memory compressor working on daemon heaps that retain task payloads).
+mizu's workers sustain `r fmt(mc("boot_pred_interval", "mizu"), 1)`
+cores: staging is a single layout write into shared memory, after
+which workers read — and publish results — without involving the main
+process.
+
+## Findings
+
+```{r}
+#| label: findings-data
+#| include: false
+
+sp <- function(wl, be) get_speedup(wl, be)
+el <- function(wl, be) get_elapsed(wl, be)
+```
+
+- **Workload A (5,000 × ~3 ms metric evaluations)** — overhead-bound.
+  mizu: `r fmt(sp("boot_metrics", "mizu"), 1)`×
+  (`r fmt(el("boot_metrics", "mizu"), 1)` s);
+  mirai: `r fmt(sp("boot_metrics", "mirai"), 1)`×;
+  future: `r fmt(sp("boot_metrics", "future"), 1)`×.
+  mizu stages the ~1 GB split list once into shared memory and workers
+  read their claimed elements off the shared pages; the other two
+  serialize every task payload to each worker.
+- **Workload B (250 × ~45 ms parsnip workflow fits)** — mizu:
+  `r fmt(sp("resample_fit", "mizu"), 1)`×, mirai:
+  `r fmt(sp("resample_fit", "mirai"), 1)`×, future:
+  `r fmt(sp("resample_fit", "future"), 1)`×.
+- **Workload C (240 × ~85 ms bootstrap permutation-importance
+  replicates)** — larger per-task payloads (~2.8 MB each, ~0.7 GB in
+  total). mizu: `r fmt(sp("perm_importance", "mizu"), 1)`×
+  (`r fmt(el("perm_importance", "mizu"), 1)` s); mirai:
+  `r fmt(sp("perm_importance", "mirai"), 1)`×; future:
+  `r fmt(sp("perm_importance", "future"), 1)`×. With the data riding
+  per-task payloads instead of a shared constant, mirai's streaming
+  dispatch beats future's chunked static dispatch (as in A and B);
+  mizu still stages the replicate list once per call and workers read
+  their claimed replicates off shared pages.
+- **Workload D (400 × ~90 ms bootstrap refits scoring a 250k-policy
+  portfolio)** — broadcast in, bulk out. mizu:
+  `r fmt(sp("boot_pred_interval", "mizu"), 1)`×
+  (`r fmt(el("boot_pred_interval", "mizu"), 1)` s); future:
+  `r fmt(sp("boot_pred_interval", "future"), 1)`×; mirai:
+  `r fmt(sp("boot_pred_interval", "mirai"), 1)`×. On top of the shared
+  38 MB portfolio, each task returns a 2 MB prediction vector (800 MB
+  total): future and mirai unserialize every result byte over sockets,
+  while mizu workers publish results into shared memory and the
+  collector wraps them as zero-copy views. Note that the mirai figure
+  uses the per-task-constant call: with `everywhere()` (callout above)
+  its map drops to `r fmt(meta$extras$boot_pred_interval$map, 1)` s —
+  below mizu's — so D's ranking reflects the calling convention, not
+  mirai's ceiling.
+
+The pattern across A→D: the gap between mizu and the socket-based
+backends widens as data movement grows relative to compute — per-task
+payloads (A, B), shared inputs (C), and large results (D) each add
+transport that mizu either does once or never does at all.
+
+## Reproducing
+
+```sh
+Rscript benchmark.R          # ~25 min; writes results/*.rds
+bash run_all.sh              # same, but one process per workload with
+                             # per-phase resume (robust to interruption)
+quarto render benchmark.qmd  # this report
+```
+
+Package versions at run time:
+
+```{r}
+#| label: versions
+
+tibble(
+  package = names(meta$packages),
+  version = unname(meta$packages)
+) |>
+  knitr::kable()
+```
