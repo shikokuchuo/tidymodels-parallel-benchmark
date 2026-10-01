@@ -355,6 +355,109 @@ ggplot(par_bench, aes(backend, speed_up, col = backend)) +
 Dashed lines: no speed-up (red) and perfect scaling on `r workers`
 workers (green). Points include the syrup-monitored run.
 
+## Amdahl's law
+
+[Amdahl's law](https://en.wikipedia.org/wiki/Amdahl%27s_law) gives the
+speed-up from running a workload with parallel fraction $p$ on $n$
+workers:
+
+$$S(n) = \frac{1}{(1 - p) + \frac{p}{n}}$$
+
+which saturates at $1 / (1 - p)$ as $n \to \infty$ — the serial
+fraction, not the worker count, sets the ceiling:
+
+```{r}
+#| label: amdahl-reference
+#| fig-width: 8
+#| fig-height: 4.5
+
+amdahl <- function(n, p) 1 / ((1 - p) + p / n)
+
+expand_grid(n = seq(1, 24, by = 0.25), p = c(0.5, 0.75, 0.9, 0.95, 0.99)) |>
+  mutate(speedup = amdahl(n, p), frac = paste0(100 * p, "%")) |>
+  ggplot(aes(n, speedup, col = frac)) +
+  geom_abline(slope = 1, intercept = 0, lty = 2, col = "grey50") +
+  geom_line(linewidth = 0.8) +
+  annotate("text", x = 22, y = 22.8, label = "ideal (S = n)", col = "grey40") +
+  scale_x_continuous(breaks = c(1, 6, 12, 18, 24)) +
+  labs(x = "workers", y = "speed-up", col = "parallel fraction") +
+  theme(legend.position = "top")
+```
+
+Inverting the law at each measured `r workers`-worker speed-up gives
+the *implied* parallel fraction $p = (1 - 1/S)\,/\,(1 - 1/n)$ of each
+backend × workload combination, and the curve that fraction implies
+for other worker counts:
+
+```{r}
+#| label: amdahl-fits
+#| fig-width: 8
+#| fig-height: 6
+
+fits <- summ |>
+  mutate(
+    p = (1 - 1 / mean_speedup) / (1 - 1 / workers),
+    max_speedup = 1 / (1 - p)
+  )
+
+imp_serial <- function(wl, be) {
+  p <- fits |>
+    filter(workload == wl_label[[wl]], backend == backend_label[[be]]) |>
+    pull(p)
+  100 * (1 - p)
+}
+
+curves <- fits |>
+  reframe(tibble(n = seq(1, 24, by = 0.25)), .by = c(workload, backend, p)) |>
+  mutate(speedup = amdahl(n, p))
+
+labels <- fits |>
+  mutate(
+    speedup = amdahl(24, p),
+    top = speedup == max(speedup), .by = workload,
+    lab = ifelse(
+      p >= 0,
+      sprintf("%s: %.0f%% parallel (max %.1f×)", backend, 100 * p, max_speedup),
+      sprintf("%s: p < 0 (slowdown)", backend)
+    )
+  )
+
+ggplot(curves, aes(n, speedup, col = backend)) +
+  geom_abline(slope = 1, intercept = 0, lty = 2, col = "grey50") +
+  geom_line(linewidth = 0.8) +
+  geom_point(
+    data = par_bench, aes(workers, speed_up), alpha = 3 / 4, cex = 1.5,
+    position = position_jitter(width = 0.15, height = 0, seed = 1)
+  ) +
+  geom_text(
+    data = labels,
+    aes(24, speedup, label = lab, col = backend, vjust = ifelse(top, 1.4, -0.6)),
+    hjust = 1, size = 2.6, show.legend = FALSE
+  ) +
+  facet_wrap(~workload) +
+  scale_color_manual(values = backend_cols) +
+  scale_x_continuous(breaks = c(1, 6, 12, 18, 24)) +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.08))) +
+  labs(x = "workers", y = "speed-up vs sequential", col = NULL) +
+  theme(legend.position = "top")
+```
+
+Each curve passes through the mean of its measured points by
+construction — the fit is the inversion at $n = `r workers`$ — so the
+plot's content is the asymptote: what workers beyond `r workers`
+would buy *if* the serial fraction stayed constant. mizu's curves are
+still rising at `r workers` (implied serial fractions
+`r fmt(imp_serial("perm_importance", "mizu"), 0)`% on C,
+`r fmt(imp_serial("resample_fit", "mizu"), 0)`% on B,
+`r fmt(imp_serial("boot_metrics", "mizu"), 0)`% on A), as is mirai's
+on C; mirai on A and D is already at its ceiling, where per-task
+serialization dominates. future's sub-1 speed-ups on A and D invert
+to *negative* parallel fractions — outside the law's domain: the
+model assumes a fixed serial share, but the staggered chunk dispatch
+behind those runs (see Anomalies) is overhead that grows with worker
+count. The flat-below-1 curves are diagnostics of that overhead, not
+Amdahl predictions.
+
 ## CPU utilization
 
 Aggregate worker CPU (sum of per-process %CPU, i.e. busy cores) over
