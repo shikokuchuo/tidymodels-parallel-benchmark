@@ -28,6 +28,8 @@ sequential `lapply()` baseline:
 ```sh
 Rscript benchmark.R                 # full run (~25 min)
 BENCH_QUICK=1 Rscript benchmark.R   # smoke test (tiny sizes)
+BENCH_SWEEP=1 Rscript benchmark.R   # worker-count sweep (2/4/8/12) for
+                                    # workloads B and C (results/sweep.rds)
 bash run_all.sh                     # resumable driver
 ```
 
@@ -43,7 +45,7 @@ BENCH_ONLY=boot_metrics Rscript benchmark.R
 `boot_pred_interval`)
 
 Results are written to `results/` (`timings.rds`, `monitors.rds`,
-`meta.rds`).
+`meta.rds`; the sweep writes `sweep.rds`).
 
 ## Generating the report
 

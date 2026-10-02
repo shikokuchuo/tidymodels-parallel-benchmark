@@ -458,6 +458,141 @@ behind those runs (see Anomalies) is overhead that grows with worker
 count. The flat-below-1 curves are diagnostics of that overhead, not
 Amdahl predictions.
 
+### Checking the fit: a worker-count sweep
+
+The fitted curves above are extrapolations from the single
+`r workers`-worker measurement. As a check, workloads B and C were
+re-run at 2, 4, and 8 workers per backend (`BENCH_SWEEP=1 Rscript
+benchmark.R`; same task sets, three timed runs per point, sequential
+baseline re-measured in the same session). Solid lines join the
+measured mean speed-ups; dotted curves are the Amdahl prediction
+pinned at each backend's 12-worker mean — everything left of 12 is the
+model predicting measurements it had not seen.
+
+```{r}
+#| label: amdahl-sweep
+#| fig-width: 8
+#| fig-height: 4.5
+
+sweep_raw <- readRDS("results/sweep.rds")
+
+sweep <- sweep_raw$timings |>
+  mutate(
+    workload = wl_label[workload],
+    backend = backend_label[backend]
+  )
+
+sweep_base <- sweep |>
+  filter(backend == "sequential") |>
+  summarize(baseline = mean(elapsed), .by = workload)
+
+sweep_meas <- sweep |>
+  filter(backend != "sequential") |>
+  inner_join(sweep_base, by = "workload") |>
+  mutate(
+    speed_up = baseline / elapsed,
+    workload = factor(workload, levels = wl_label),
+    backend = factor(backend, levels = backend_label)
+  )
+
+sweep_n <- max(sweep$workers)
+
+# Amdahl prediction pinned at each backend's mean 12-worker speed-up
+sweep_pred <- sweep_meas |>
+  filter(workers == sweep_n) |>
+  summarize(s_top = mean(speed_up), .by = c(workload, backend)) |>
+  mutate(p = (1 - 1 / s_top) / (1 - 1 / sweep_n)) |>
+  reframe(
+    tibble(n = seq(1, sweep_n, by = 0.25)),
+    .by = c(workload, backend, p)
+  ) |>
+  mutate(speedup = amdahl(n, p))
+
+# Karp-Flatt: the implied serial fraction at each worker count —
+# constant under Amdahl, drifting when overhead grows with workers
+kf <- sweep_meas |>
+  summarize(s = mean(speed_up), .by = c(workload, backend, workers)) |>
+  mutate(serial = 100 * (1 - (1 - 1 / s) / (1 - 1 / workers)))
+
+kf_serial <- function(wl, be, w) {
+  kf |>
+    filter(
+      workload == wl_label[[wl]],
+      backend == backend_label[[be]],
+      workers == w
+    ) |>
+    pull(serial)
+}
+kf_s <- function(wl, be, w) {
+  kf |>
+    filter(
+      workload == wl_label[[wl]],
+      backend == backend_label[[be]],
+      workers == w
+    ) |>
+    pull(s)
+}
+
+ggplot(sweep_meas, aes(workers, speed_up, col = backend)) +
+  geom_abline(slope = 1, intercept = 0, lty = 2, col = "grey50") +
+  geom_line(data = sweep_pred, aes(n, speedup), lty = 3, linewidth = 0.7) +
+  geom_point(
+    alpha = 1 / 2, cex = 1.2,
+    position = position_jitter(width = 0.12, height = 0, seed = 1)
+  ) +
+  stat_summary(fun = mean, geom = "line", linewidth = 0.8) +
+  stat_summary(fun = mean, geom = "point", cex = 2) +
+  facet_wrap(~workload) +
+  scale_color_manual(values = backend_cols) +
+  scale_x_continuous(breaks = c(2, 4, 8, 12)) +
+  labs(x = "workers", y = "speed-up vs sequential", col = NULL) +
+  theme(legend.position = "top")
+```
+
+Every backend × worker count returned results identical to the
+sequential reference
+(`r if (all(unlist(sweep_raw$correct))) "all 24 combinations match" else paste("MISMATCH:", names(sweep_raw$correct)[!unlist(sweep_raw$correct)])`).
+
+If the law held exactly, the implied serial fraction would be the same
+at every worker count, so its drift across 2/4/8/12 is the diagnostic
+(the Karp–Flatt metric). Measured:
+
+- **mizu** — flat:
+  `r fmt(kf_serial("resample_fit", "mizu", 2), 1)`→`r fmt(kf_serial("resample_fit", "mizu", 12), 1)`%
+  on B,
+  `r fmt(kf_serial("perm_importance", "mizu", 2), 1)`→`r fmt(kf_serial("perm_importance", "mizu", 12), 1)`%
+  on C, no trend. The measured points track the fitted curve closely:
+  the constant-$p$ assumption holds, and mizu's Amdahl curves in the
+  previous figure mean what they say.
+- **mirai** — *falls* with worker count (B:
+  `r fmt(kf_serial("resample_fit", "mirai", 2), 0)`→`r fmt(kf_serial("resample_fit", "mirai", 12), 0)`%,
+  C:
+  `r fmt(kf_serial("perm_importance", "mirai", 2), 0)`→`r fmt(kf_serial("perm_importance", "mirai", 12), 0)`%):
+  its per-task transport is proportionally worst at 2 workers — B
+  shows almost no speed-up there
+  (`r fmt(kf_s("resample_fit", "mirai", 2), 1)`×) — and amortizes as
+  the dispatcher pipelines more workers. The 12-pinned curve therefore
+  over-predicts at 2–4 workers.
+- **future** — *rises* with worker count (B:
+  `r fmt(kf_serial("resample_fit", "future", 2), 0)`→`r fmt(kf_serial("resample_fit", "future", 12), 0)`%,
+  C:
+  `r fmt(kf_serial("perm_importance", "future", 2), 0)`→`r fmt(kf_serial("perm_importance", "future", 12), 0)`%):
+  the overhead-grows-with-workers signature. Measured speed-up peaks
+  at 4–8 workers
+  (`r fmt(kf_s("resample_fit", "future", 4), 1)`–`r fmt(kf_s("perm_importance", "future", 8), 1)`×)
+  and *declines* by 12 as the staggered chunk dispatch (see Anomalies)
+  costs more than the added workers return; the Amdahl shape is the
+  wrong family here, and the 12-pinned curve under-predicts the
+  mid-range. future's 12-worker mean is also the most variable
+  quantity in the benchmark:
+  `r fmt(kf_s("perm_importance", "future", 12), 1)`× here vs 2.3× in
+  the main run.
+
+The net: the fitted curves are trustworthy only where the serial
+fraction is flat — mizu on both workloads, and mirai on C from ~8
+workers up. Elsewhere the sweep's measured points, not the curves,
+are the scaling story.
+
 ## CPU utilization
 
 Aggregate worker CPU (sum of per-process %CPU, i.e. busy cores) over
@@ -623,10 +758,12 @@ transport that mizu either does once or never does at all.
 ## Reproducing
 
 ```sh
-Rscript benchmark.R          # ~25 min; writes results/*.rds
-bash run_all.sh              # same, but one process per workload with
-                             # per-phase resume (robust to interruption)
-quarto render benchmark.qmd  # this report
+Rscript benchmark.R                # ~25 min; writes results/*.rds
+bash run_all.sh                    # same, but one process per workload with
+                                   # per-phase resume (robust to interruption)
+BENCH_SWEEP=1 Rscript benchmark.R  # worker-count sweep for B and C;
+                                   # writes results/sweep.rds
+quarto render benchmark.qmd        # this report
 ```
 
 Package versions at run time:

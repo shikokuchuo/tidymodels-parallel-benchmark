@@ -5,6 +5,9 @@
 #
 #   Rscript benchmark.R                 full run (~25 min)
 #   BENCH_QUICK=1 Rscript benchmark.R   smoke test (tiny sizes)
+#   BENCH_SWEEP=1 Rscript benchmark.R   worker-count sweep (2/4/8/12) on
+#                                       workloads B and C; writes
+#                                       results/sweep.rds and exits
 #   bash run_all.sh                     resumable driver: one process per
 #                                       workload, skips completed phases
 #                                       (robust to killed/interrupted runs)
@@ -12,6 +15,7 @@
 # Writes results/timings.rds, results/monitors.rds, results/meta.rds.
 
 quick <- Sys.getenv("BENCH_QUICK") == "1"
+sweep <- Sys.getenv("BENCH_SWEEP") == "1"
 # BENCH_ONLY=<workload id> runs a single workload and merges into the
 # existing results files (resume after an interrupted full run).
 only <- Sys.getenv("BENCH_ONLY")
@@ -306,6 +310,81 @@ backends_all <- c("future", "mirai", "mizu")
 backends_run <- backends_all
 backends_warmup <- character(0)
 seq_run <- TRUE
+
+# ------------------------------------------------------------------------------
+# Worker-count sweep (BENCH_SWEEP=1): workloads B and C only, timed at
+# 2/4/8/12 workers per backend plus a sequential baseline. Validates the
+# report's Amdahl fits: each curve is pinned by the 12-worker measurement,
+# so the lower worker counts test whether the implied serial fraction is
+# really constant. No syrup monitoring; writes results/sweep.rds and exits
+# without touching the main results files.
+
+if (sweep) {
+  sweep_workers <- sort(unique(c(2L, 4L, 8L, workers)))
+  sweep_wls <- Filter(
+    function(w) w$id %in% c("resample_fit", "perm_importance"),
+    workloads
+  )
+  sweep_timings <- list()
+  sweep_correct <- list()
+  record_sweep <- function(workload, backend, workers, run, tt) {
+    sweep_timings[[length(sweep_timings) + 1L]] <<- tibble(
+      workload = workload,
+      backend = backend,
+      workers = workers,
+      run = run,
+      user = unname(tt[["user.self"]]),
+      system = unname(tt[["sys.self"]]),
+      elapsed = unname(tt[["elapsed"]])
+    )
+  }
+
+  for (wl in sweep_wls) {
+    note(sprintf("\n=== sweep: %s (%d tasks) ===\n", wl$id, length(wl$tasks)))
+
+    tt <- system.time(ref <- do.call(lapply, c(list(wl$tasks, wl$fn), wl$args)))
+    record_sweep(wl$id, "sequential", 1L, 1L, tt)
+    note(sprintf("sequential 1: %.2fs\n", tt[["elapsed"]]))
+    if (wl$n_seq > 1L) {
+      for (i in 2:wl$n_seq) {
+        tt <- system.time(do.call(lapply, c(list(wl$tasks, wl$fn), wl$args)))
+        record_sweep(wl$id, "sequential", 1L, i, tt)
+        note(sprintf("sequential %d: %.2fs\n", i, tt[["elapsed"]]))
+      }
+    }
+
+    for (w in sweep_workers) {
+      for (be in backends_all) {
+        h <- setup_backend(be, w)
+        out <- run_backend(be, h, wl$tasks, wl$fn, wl$args)
+        ok <- isTRUE(all.equal(unname(ref), unname(out), tolerance = 1e-8))
+        sweep_correct[[paste(wl$id, be, w, sep = " / ")]] <- ok
+        note(sprintf("%s w=%d warmup (correct: %s)\n", be, w, ok))
+        if (!ok) {
+          warning("result mismatch: ", wl$id, " / ", be, " / workers=", w)
+        }
+        for (i in seq_len(n_timed)) {
+          tt <- system.time(run_backend(be, h, wl$tasks, wl$fn, wl$args))
+          record_sweep(wl$id, be, w, i, tt)
+          note(sprintf("%s w=%d %d: %.2fs\n", be, w, i, tt[["elapsed"]]))
+        }
+        teardown_backend(be, h)
+      }
+    }
+  }
+
+  saveRDS(
+    list(
+      timings = bind_rows(sweep_timings),
+      sweep_workers = sweep_workers,
+      correct = sweep_correct,
+      timestamp = Sys.time()
+    ),
+    "results/sweep.rds"
+  )
+  note("\nsweep done\n")
+  quit("no")
+}
 
 if (nzchar(only)) {
   # resume mode: keep rows for other workloads and for this workload's
