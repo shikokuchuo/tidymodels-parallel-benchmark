@@ -260,7 +260,10 @@ if (nzchar(only)) {
 # Constant arguments (workload D's portfolio; C's only constant is the
 # fitted model) go through each backend's natural map call: future exports
 # them as globals once per worker chunk, mirai serializes them with every
-# task, mizu stages them once per call.
+# task, mizu stages them once per call. mizu's map is handle-first:
+# mizu_map() stages and submits, returning a mizu_map handle immediately;
+# mizu_collect() blocks for the results. Both halves sit inside the timed
+# region, so the measured work matches the other backends' blocking maps.
 
 setup_backend <- function(backend, workers) {
   switch(
@@ -273,7 +276,8 @@ setup_backend <- function(backend, workers) {
       mirai::daemons(workers)
       NULL
     },
-    mizu = mizu::mizu_pool(workers)
+    mizu = ,
+    mizu_stream = mizu::mizu_pool(workers)
   )
 }
 
@@ -285,7 +289,17 @@ run_backend <- function(backend, handle, tasks, fn, args) {
       mirai::mirai_map,
       c(list(tasks, fn), list(.args = args))
     )[],
-    mizu = do.call(mizu::mizu_map, c(list(handle, tasks, fn), args))
+    mizu = mizu::mizu_collect(
+      do.call(mizu::mizu_map, c(list(handle, tasks, fn), args))
+    ),
+    # D variant: x streams to workers in per-chunk slices under a
+    # sliding window instead of being staged wholesale
+    mizu_stream = mizu::mizu_collect(
+      do.call(
+        mizu::mizu_map,
+        c(list(handle, tasks, fn), args, list(.stream = TRUE))
+      )
+    )
   )
 }
 
@@ -294,7 +308,8 @@ teardown_backend <- function(backend, handle) {
     backend,
     future = future::plan(future::sequential),
     mirai = mirai::daemons(0),
-    mizu = mizu::mizu_pool_stop(handle)
+    mizu = ,
+    mizu_stream = mizu::mizu_pool_stop(handle)
   )
 }
 
@@ -310,6 +325,17 @@ backends_all <- c("future", "mirai", "mizu")
 backends_run <- backends_all
 backends_warmup <- character(0)
 seq_run <- TRUE
+
+# An extra mizu configuration measured on workload D only (see
+# run_backend): a streaming map whose per-chunk transport mirrors
+# mirai's model.
+wl_backends <- function(wl_id) {
+  if (identical(wl_id, "boot_pred_interval")) {
+    c(backends_all, "mizu_stream")
+  } else {
+    backends_all
+  }
+}
 
 # ------------------------------------------------------------------------------
 # Worker-count sweep (BENCH_SWEEP=1): workloads B and C only, timed at
@@ -404,17 +430,17 @@ if (nzchar(only)) {
     seq_run <- sum(mine$backend == "sequential") < workloads[[1]]$n_seq
     backends_run <- Filter(
       function(b) sum(mine$backend == b) < n_timed + 1L,
-      backends_all
+      wl_backends(wl_id)
     )
     backends_warmup <- Filter(
       function(b) {
         sum(mine$backend == b) >= n_timed + 1L &&
           !paste(wl_id, b, sep = " / ") %in% names(correct)
       },
-      backends_all
+      wl_backends(wl_id)
     )
     complete <- setdiff(
-      c("sequential", backends_all),
+      c("sequential", wl_backends(wl_id)),
       c(if (seq_run) "sequential", backends_run)
     )
     timings <- list(prev_t[
@@ -463,11 +489,18 @@ main_pid <- Sys.getpid()
 
 for (wl in workloads) {
   note(sprintf("\n=== %s (%d tasks) ===\n", wl$id, length(wl$tasks)))
+  if (nzchar(only)) {
+    run_these <- intersect(wl_backends(wl$id), backends_run)
+    warm_these <- intersect(wl_backends(wl$id), backends_warmup)
+  } else {
+    run_these <- wl_backends(wl$id)
+    warm_these <- backends_warmup
+  }
 
   ref <- do.call(lapply, c(list(wl$tasks, wl$fn), wl$args))
   refs[[wl$id]] <- ref
 
-  for (be in backends_warmup) {
+  for (be in warm_these) {
     h <- setup_backend(be, workers)
     out <- run_backend(be, h, wl$tasks, wl$fn, wl$args)
     ok <- isTRUE(all.equal(unname(ref), unname(out), tolerance = 1e-8))
@@ -484,7 +517,7 @@ for (wl in workloads) {
     }
   }
 
-  for (be in backends_run) {
+  for (be in run_these) {
     h <- setup_backend(be, workers)
 
     out <- run_backend(be, h, wl$tasks, wl$fn, wl$args)
@@ -494,11 +527,17 @@ for (wl in workloads) {
     if (!ok) {
       warning("result mismatch: ", wl$id, " / ", be)
     }
+    # release the warmup result (a view pins its whole map region)
+    rm(out)
+    invisible(gc())
 
     for (i in seq_len(n_timed)) {
       tt <- system.time(run_backend(be, h, wl$tasks, wl$fn, wl$args))
       record(wl$id, be, i, FALSE, tt)
       note(sprintf("%s %d: %.2fs\n", be, i, tt[["elapsed"]]))
+      # release discarded results (views pin their regions) before the
+      # next run; untimed
+      invisible(gc())
     }
 
     tt <- system.time(
@@ -513,6 +552,8 @@ for (wl in workloads) {
       mutate(across(any_of(c("rss", "vms")), as.numeric)) |>
       mutate(workload = wl$id, backend = be, main_pid = main_pid)
     note(sprintf("%s monitored: %.2fs\n", be, tt[["elapsed"]]))
+    rm(mon)
+    invisible(gc())
 
     teardown_backend(be, h)
     checkpoint()

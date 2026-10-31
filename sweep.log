@@ -11,17 +11,17 @@ The following object is masked from ‘package:stats’:
 Loading required package: parsnip
 Loading required package: workflows
 Loading required package: yardstick
-sequential 1: 11.04s
-sequential 2: 10.11s
-sequential 3: 9.81s
+sequential 1: 10.39s
+sequential 2: 9.53s
+sequential 3: 9.62s
 future w=2 warmup (correct: TRUE)
-future w=2 1: 6.07s
-future w=2 2: 6.16s
-future w=2 3: 6.11s
+future w=2 1: 5.87s
+future w=2 2: 6.02s
+future w=2 3: 6.16s
 mirai w=2 warmup (correct: TRUE)
-mirai w=2 1: 10.01s
-mirai w=2 2: 10.09s
-mirai w=2 3: 10.16s
+mirai w=2 1: 10.02s
+mirai w=2 2: 9.50s
+mirai w=2 3: 9.43s
 Loading required package: rsample
 Loading required package: rsample
 Loading required package: recipes
@@ -33,6 +33,10 @@ Attaching package: ‘dplyr’
 
 
 Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
 
 The following objects are masked from ‘package:stats’:
 
@@ -41,10 +45,6 @@ The following objects are masked from ‘package:stats’:
 The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
 
 The following objects are masked from ‘package:base’:
 
@@ -71,32 +71,43 @@ Loading required package: workflows
 Loading required package: yardstick
 Loading required package: yardstick
 mizu w=2 warmup (correct: TRUE)
-mizu w=2 1: 5.37s
-mizu w=2 2: 5.41s
-mizu w=2 3: 5.43s
+mizu w=2 1: 5.21s
+mizu w=2 2: 5.35s
+mizu w=2 3: 5.23s
 future w=4 warmup (correct: TRUE)
-future w=4 1: 4.50s
-future w=4 2: 4.35s
-future w=4 3: 4.35s
+future w=4 1: 4.38s
+future w=4 2: 4.28s
+future w=4 3: 4.24s
 mirai w=4 warmup (correct: TRUE)
-mirai w=4 1: 5.52s
-mirai w=4 2: 5.63s
-mirai w=4 3: 5.58s
+mirai w=4 1: 5.45s
+mirai w=4 2: 5.48s
+mirai w=4 3: 5.40s
 Loading required package: rsample
 Loading required package: rsample
 Loading required package: rsample
 Loading required package: rsample
-Loading required package: recipes
 Loading required package: recipes
 Loading required package: dplyr
 Loading required package: recipes
-Loading required package: dplyr
 Loading required package: recipes
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+Loading required package: recipes
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Loading required package: dplyr
+Loading required package: dplyr
 Loading required package: dplyr
 
 Attaching package: ‘dplyr’
 
-Loading required package: dplyr
 
 Attaching package: ‘dplyr’
 
@@ -107,17 +118,6 @@ The following objects are masked from ‘package:stats’:
 The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
-
-
-Attaching package: ‘dplyr’
 
 The following objects are masked from ‘package:stats’:
 
@@ -170,26 +170,26 @@ The following object is masked from ‘package:stats’:
     step
 
 Loading required package: parsnip
-Loading required package: workflows
-Loading required package: workflows
 Loading required package: workflows
 Loading required package: workflows
 Loading required package: yardstick
+Loading required package: workflows
+Loading required package: workflows
 Loading required package: yardstick
 Loading required package: yardstick
 Loading required package: yardstick
 mizu w=4 warmup (correct: TRUE)
-mizu w=4 1: 2.92s
-mizu w=4 2: 2.90s
-mizu w=4 3: 2.97s
+mizu w=4 1: 2.88s
+mizu w=4 2: 2.88s
+mizu w=4 3: 2.88s
 future w=8 warmup (correct: TRUE)
-future w=8 1: 4.80s
-future w=8 2: 4.49s
-future w=8 3: 4.52s
+future w=8 1: 4.82s
+future w=8 2: 4.39s
+future w=8 3: 4.36s
 mirai w=8 warmup (correct: TRUE)
-mirai w=8 1: 3.40s
-mirai w=8 2: 3.35s
-mirai w=8 3: 3.34s
+mirai w=8 1: 3.18s
+mirai w=8 2: 3.16s
+mirai w=8 3: 3.25s
 Loading required package: rsample
 Loading required package: rsample
 Loading required package: rsample
@@ -198,17 +198,18 @@ Loading required package: rsample
 Loading required package: rsample
 Loading required package: rsample
 Loading required package: rsample
+Loading required package: recipes
+Loading required package: recipes
+Loading required package: recipes
 Loading required package: recipes
 Loading required package: recipes
 Loading required package: recipes
 Loading required package: recipes
 Loading required package: dplyr
 Loading required package: recipes
-Loading required package: recipes
 Loading required package: dplyr
-Loading required package: recipes
 Loading required package: dplyr
-Loading required package: recipes
+Loading required package: dplyr
 Loading required package: dplyr
 Loading required package: dplyr
 Loading required package: dplyr
@@ -216,10 +217,48 @@ Loading required package: dplyr
 
 Attaching package: ‘dplyr’
 
-Loading required package: dplyr
+
+Attaching package: ‘dplyr’
+
 The following objects are masked from ‘package:stats’:
 
     filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+
+Attaching package: ‘dplyr’
+
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+
+Attaching package: ‘dplyr’
 
 The following objects are masked from ‘package:base’:
 
@@ -239,8 +278,9 @@ The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
 
+The following objects are masked from ‘package:stats’:
 
-Attaching package: ‘dplyr’
+    filter, lag
 
 The following objects are masked from ‘package:stats’:
 
@@ -249,46 +289,6 @@ The following objects are masked from ‘package:stats’:
 The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
-
-Attaching package: ‘dplyr’
-
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
-
-
-Attaching package: ‘dplyr’
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
-
-
-Attaching package: ‘dplyr’
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
-
-
-Attaching package: ‘dplyr’
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
 
 The following objects are masked from ‘package:base’:
 
@@ -305,6 +305,22 @@ The following objects are masked from ‘package:base’:
 
 Attaching package: ‘recipes’
 
+The following object is masked from ‘package:stats’:
+
+    step
+
+Loading required package: parsnip
+
+Attaching package: ‘recipes’
+
+
+Attaching package: ‘recipes’
+
+The following object is masked from ‘package:stats’:
+
+    step
+
+Loading required package: parsnip
 The following object is masked from ‘package:stats’:
 
     step
@@ -337,14 +353,6 @@ Loading required package: parsnip
 
 Attaching package: ‘recipes’
 
-The following object is masked from ‘package:stats’:
-
-    step
-
-Loading required package: parsnip
-
-Attaching package: ‘recipes’
-
 
 Attaching package: ‘recipes’
 
@@ -358,15 +366,6 @@ The following object is masked from ‘package:stats’:
 
 Loading required package: parsnip
 Loading required package: parsnip
-
-Attaching package: ‘recipes’
-
-The following object is masked from ‘package:stats’:
-
-    step
-
-Loading required package: parsnip
-Loading required package: workflows
 Loading required package: workflows
 Loading required package: workflows
 Loading required package: workflows
@@ -374,6 +373,7 @@ Loading required package: workflows
 Loading required package: workflows
 Loading required package: yardstick
 Loading required package: yardstick
+Loading required package: workflows
 Loading required package: workflows
 Loading required package: workflows
 Loading required package: yardstick
@@ -383,17 +383,17 @@ Loading required package: yardstick
 Loading required package: yardstick
 Loading required package: yardstick
 mizu w=8 warmup (correct: TRUE)
-mizu w=8 1: 1.65s
-mizu w=8 2: 1.64s
-mizu w=8 3: 1.65s
+mizu w=8 1: 1.71s
+mizu w=8 2: 1.67s
+mizu w=8 3: 1.62s
 future w=12 warmup (correct: TRUE)
-future w=12 1: 6.10s
-future w=12 2: 5.57s
-future w=12 3: 5.59s
+future w=12 1: 5.73s
+future w=12 2: 5.28s
+future w=12 3: 5.34s
 mirai w=12 warmup (correct: TRUE)
-mirai w=12 1: 2.71s
-mirai w=12 2: 2.84s
-mirai w=12 3: 2.75s
+mirai w=12 1: 2.44s
+mirai w=12 2: 2.50s
+mirai w=12 3: 2.43s
 Loading required package: rsample
 Loading required package: rsample
 Loading required package: rsample
@@ -406,6 +406,8 @@ Loading required package: rsample
 Loading required package: rsample
 Loading required package: rsample
 Loading required package: rsample
+Loading required package: recipes
+Loading required package: dplyr
 Loading required package: recipes
 Loading required package: dplyr
 
@@ -419,8 +421,6 @@ The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
 
-Loading required package: recipes
-Loading required package: dplyr
 
 Attaching package: ‘dplyr’
 
@@ -435,22 +435,10 @@ The following objects are masked from ‘package:base’:
 Loading required package: recipes
 Loading required package: dplyr
 Loading required package: recipes
-Loading required package: recipes
 Loading required package: dplyr
 
 Attaching package: ‘dplyr’
 
-Loading required package: dplyr
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
-
-Loading required package: recipes
-Loading required package: dplyr
 
 Attaching package: ‘dplyr’
 
@@ -462,17 +450,6 @@ The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
 
-Loading required package: recipes
-
-Attaching package: ‘dplyr’
-
-
-Attaching package: ‘dplyr’
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
 The following objects are masked from ‘package:stats’:
 
     filter, lag
@@ -481,26 +458,13 @@ The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
 
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
-
-Loading required package: dplyr
 Loading required package: recipes
-
-Attaching package: ‘dplyr’
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
-Loading required package: dplyr
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
-
+Loading required package: recipes
 Loading required package: recipes
 Loading required package: dplyr
+Loading required package: dplyr
+Loading required package: dplyr
+Loading required package: recipes
 
 Attaching package: ‘dplyr’
 
@@ -538,6 +502,42 @@ The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
 
+Loading required package: dplyr
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+
+Attaching package: ‘dplyr’
+
+Loading required package: recipes
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Loading required package: dplyr
 
 Attaching package: ‘dplyr’
 
@@ -661,12 +661,6 @@ Loading required package: parsnip
 Loading required package: workflows
 Loading required package: yardstick
 Loading required package: workflows
-Loading required package: yardstick
-Loading required package: workflows
-Loading required package: workflows
-Loading required package: workflows
-Loading required package: yardstick
-Loading required package: yardstick
 Loading required package: workflows
 Loading required package: workflows
 Loading required package: yardstick
@@ -677,28 +671,34 @@ Loading required package: yardstick
 Loading required package: yardstick
 Loading required package: yardstick
 Loading required package: workflows
+Loading required package: workflows
 Loading required package: yardstick
+Loading required package: yardstick
+Loading required package: workflows
+Loading required package: workflows
 Loading required package: workflows
 Loading required package: yardstick
 Loading required package: workflows
+Loading required package: yardstick
+Loading required package: yardstick
 Loading required package: yardstick
 mizu w=12 warmup (correct: TRUE)
-mizu w=12 1: 1.42s
-mizu w=12 2: 1.36s
-mizu w=12 3: 1.37s
+mizu w=12 1: 1.38s
+mizu w=12 2: 1.37s
+mizu w=12 3: 1.35s
 
 === sweep: perm_importance (240 tasks) ===
-sequential 1: 20.30s
-sequential 2: 20.06s
-sequential 3: 19.73s
+sequential 1: 19.68s
+sequential 2: 19.62s
+sequential 3: 19.42s
 future w=2 warmup (correct: TRUE)
-future w=2 1: 11.65s
-future w=2 2: 11.58s
-future w=2 3: 11.69s
+future w=2 1: 11.26s
+future w=2 2: 11.29s
+future w=2 3: 11.11s
 mirai w=2 warmup (correct: TRUE)
-mirai w=2 1: 13.63s
-mirai w=2 2: 13.61s
-mirai w=2 3: 13.59s
+mirai w=2 1: 12.49s
+mirai w=2 2: 12.51s
+mirai w=2 3: 12.72s
 Loading required package: rsample
 Loading required package: rsample
 Loading required package: yardstick
@@ -728,50 +728,34 @@ The following objects are masked from ‘package:base’:
     intersect, setdiff, setequal, union
 
 mizu w=2 warmup (correct: TRUE)
-mizu w=2 1: 10.28s
-mizu w=2 2: 10.30s
-mizu w=2 3: 10.29s
+mizu w=2 1: 9.75s
+mizu w=2 2: 9.80s
+mizu w=2 3: 9.98s
 future w=4 warmup (correct: TRUE)
-future w=4 1: 7.90s
-future w=4 2: 7.88s
-future w=4 3: 7.86s
+future w=4 1: 7.60s
+future w=4 2: 7.57s
+future w=4 3: 7.50s
 mirai w=4 warmup (correct: TRUE)
-mirai w=4 1: 7.31s
-mirai w=4 2: 7.29s
-mirai w=4 3: 7.36s
+mirai w=4 1: 7.08s
+mirai w=4 2: 7.13s
+mirai w=4 3: 7.12s
 Loading required package: rsample
 Loading required package: rsample
 Loading required package: rsample
 Loading required package: rsample
+Loading required package: yardstick
+Loading required package: yardstick
 Loading required package: yardstick
 Loading required package: yardstick
 Loading required package: dplyr
-Loading required package: yardstick
-Loading required package: yardstick
-
-Attaching package: ‘dplyr’
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
-
 Loading required package: dplyr
 Loading required package: dplyr
 Loading required package: dplyr
 
 Attaching package: ‘dplyr’
 
-The following objects are masked from ‘package:stats’:
 
-    filter, lag
-
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
+Attaching package: ‘dplyr’
 
 
 Attaching package: ‘dplyr’
@@ -790,23 +774,39 @@ The following objects are masked from ‘package:base’:
 The following objects are masked from ‘package:stats’:
 
     filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
 
 The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
 
 mizu w=4 warmup (correct: TRUE)
-mizu w=4 1: 5.46s
-mizu w=4 2: 5.45s
-mizu w=4 3: 5.43s
+mizu w=4 1: 5.28s
+mizu w=4 2: 5.27s
+mizu w=4 3: 5.25s
 future w=8 warmup (correct: TRUE)
-future w=8 1: 7.51s
-future w=8 2: 7.32s
-future w=8 3: 7.34s
+future w=8 1: 7.21s
+future w=8 2: 7.09s
+future w=8 3: 7.10s
 mirai w=8 warmup (correct: TRUE)
-mirai w=8 1: 4.17s
-mirai w=8 2: 4.20s
-mirai w=8 3: 4.18s
+mirai w=8 1: 4.12s
+mirai w=8 2: 3.99s
+mirai w=8 3: 4.00s
 Loading required package: rsample
 Loading required package: rsample
 Loading required package: rsample
@@ -820,8 +820,7 @@ Loading required package: yardstick
 Loading required package: yardstick
 Loading required package: yardstick
 Loading required package: yardstick
-Loading required package: yardstick
-Loading required package: yardstick
+Loading required package: dplyr
 Loading required package: yardstick
 Loading required package: dplyr
 Loading required package: dplyr
@@ -836,50 +835,21 @@ The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
 
-Loading required package: dplyr
-Loading required package: dplyr
-Loading required package: dplyr
-Loading required package: dplyr
 
 Attaching package: ‘dplyr’
 
+Loading required package: yardstick
 The following objects are masked from ‘package:stats’:
 
     filter, lag
-
-Loading required package: dplyr
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
-
-Loading required package: dplyr
-
-Attaching package: ‘dplyr’
-
-
-Attaching package: ‘dplyr’
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
-
-Attaching package: ‘dplyr’
 
 The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
 
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
+Loading required package: yardstick
 
 Attaching package: ‘dplyr’
-
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
 
 The following objects are masked from ‘package:stats’:
 
@@ -888,6 +858,23 @@ The following objects are masked from ‘package:stats’:
 The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
+
+Loading required package: dplyr
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Loading required package: dplyr
+Loading required package: dplyr
+
+Attaching package: ‘dplyr’
 
 The following objects are masked from ‘package:stats’:
 
@@ -900,6 +887,16 @@ The following objects are masked from ‘package:base’:
 
 Attaching package: ‘dplyr’
 
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Loading required package: dplyr
+Loading required package: dplyr
 
 Attaching package: ‘dplyr’
 
@@ -910,6 +907,9 @@ The following objects are masked from ‘package:stats’:
 The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
+
+
+Attaching package: ‘dplyr’
 
 The following objects are masked from ‘package:stats’:
 
@@ -920,17 +920,17 @@ The following objects are masked from ‘package:base’:
     intersect, setdiff, setequal, union
 
 mizu w=8 warmup (correct: TRUE)
-mizu w=8 1: 3.05s
-mizu w=8 2: 3.08s
-mizu w=8 3: 3.03s
+mizu w=8 1: 2.88s
+mizu w=8 2: 2.91s
+mizu w=8 3: 2.89s
 future w=12 warmup (correct: TRUE)
-future w=12 1: 12.39s
-future w=12 2: 11.73s
-future w=12 3: 10.22s
+future w=12 1: 8.75s
+future w=12 2: 8.31s
+future w=12 3: 10.71s
 mirai w=12 warmup (correct: TRUE)
-mirai w=12 1: 3.23s
-mirai w=12 2: 3.25s
-mirai w=12 3: 3.25s
+mirai w=12 1: 3.19s
+mirai w=12 2: 3.30s
+mirai w=12 3: 3.27s
 Loading required package: rsample
 Loading required package: rsample
 Loading required package: rsample
@@ -946,59 +946,6 @@ Loading required package: rsample
 Loading required package: yardstick
 Loading required package: yardstick
 Loading required package: dplyr
-
-Attaching package: ‘dplyr’
-
-Loading required package: yardstick
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
-
-Loading required package: dplyr
-Loading required package: yardstick
-
-Attaching package: ‘dplyr’
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
-
-Loading required package: dplyr
-
-Attaching package: ‘dplyr’
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
-
-Loading required package: dplyr
-Loading required package: yardstick
-
-Attaching package: ‘dplyr’
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
-
-Loading required package: dplyr
-Loading required package: yardstick
-Loading required package: yardstick
 
 Attaching package: ‘dplyr’
 
@@ -1023,19 +970,6 @@ The following objects are masked from ‘package:base’:
     intersect, setdiff, setequal, union
 
 Loading required package: yardstick
-Loading required package: dplyr
-Loading required package: yardstick
-
-Attaching package: ‘dplyr’
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union
-
 Loading required package: yardstick
 Loading required package: yardstick
 Loading required package: dplyr
@@ -1050,12 +984,10 @@ The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
 
+Loading required package: yardstick
 Loading required package: dplyr
-Loading required package: dplyr
-Loading required package: dplyr
-
-Attaching package: ‘dplyr’
-
+Loading required package: yardstick
+Loading required package: yardstick
 
 Attaching package: ‘dplyr’
 
@@ -1066,6 +998,13 @@ The following objects are masked from ‘package:stats’:
 The following objects are masked from ‘package:base’:
 
     intersect, setdiff, setequal, union
+
+Loading required package: yardstick
+Loading required package: dplyr
+Loading required package: dplyr
+Loading required package: dplyr
+
+Attaching package: ‘dplyr’
 
 The following objects are masked from ‘package:stats’:
 
@@ -1087,6 +1026,67 @@ The following objects are masked from ‘package:base’:
     intersect, setdiff, setequal, union
 
 Loading required package: yardstick
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Loading required package: dplyr
+Loading required package: yardstick
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Loading required package: dplyr
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+Loading required package: dplyr
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+
+Attaching package: ‘dplyr’
+
+Loading required package: dplyr
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Loading required package: yardstick
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
 Loading required package: dplyr
 
 Attaching package: ‘dplyr’
@@ -1100,8 +1100,8 @@ The following objects are masked from ‘package:base’:
     intersect, setdiff, setequal, union
 
 mizu w=12 warmup (correct: TRUE)
-mizu w=12 1: 2.54s
-mizu w=12 2: 2.52s
+mizu w=12 1: 2.56s
+mizu w=12 2: 2.71s
 mizu w=12 3: 2.55s
 
 sweep done
