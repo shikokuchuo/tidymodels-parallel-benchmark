@@ -1,6 +1,6 @@
 ---
 title: "Parallel backends for tidymodels workloads"
-subtitle: "Benchmarks of future, mirai, and mizu on four real modeling tasks"
+subtitle: "Benchmarks of future, mirai, and mizu on four real modeling tasks — DRAFT"
 format:
   html:
     toc: true
@@ -9,6 +9,13 @@ format:
 execute:
   echo: false
 ---
+
+::: {.callout-warning}
+## Draft report
+
+This is a working draft. Results, figures, and conclusions are preliminary
+and have not been reviewed. Do not cite or distribute as a final report.
+:::
 
 ```{r}
 #| label: setup
